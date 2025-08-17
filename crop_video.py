@@ -96,7 +96,7 @@ class RectangleTracker:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-f", "--file", required=True, help="path to input video file")
-    ap.add_argument("-o", "--output", type=str, default="videos/output.txt", help="path to output ffmpeg script")
+    ap.add_argument("-o", "--output", type=str, default="output.txt", help="path to output ffmpeg script")
     ap.add_argument("-t", "--tracker", type=str, default="csrt", help="OpenCV object tracker type")
     ap.add_argument("-r", "--ratio", type=int, default=5, help="ratio to resize frames for processing")
     ap.add_argument("-s", "--smooth-sigma", type=int, default=5, help="sigma for gaussian smoothing")

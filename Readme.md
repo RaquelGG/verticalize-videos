@@ -16,11 +16,11 @@ A `run.bat` script is provided to automate the entire process.
 2.  **Run the script:**
     Open a command prompt, navigate to the project directory, and run:
     ```bash
-    run.bat "path\\to\\your_video.mp4" [path\\to\\output_video.mp4]
+    run.bat "path\\to\\your_video.mp4" [path\\to\\output_video.mp4] [smooth_sigma]
     ```
-    -   Replace `"path\\to\\your_video.mp4"` with the full path to your video file. Make sure to enclose the path in quotes if it contains spaces.
-    -   The `[path\\to\\output_video.mp4]` argument is optional. If you provide it, the cropped video will be saved to that path.
-    -   If you don't provide an output path, the video will be saved in the `videos/` directory with the name `cropped_your_video.mp4`.
+    -   `"path\\to\\your_video.mp4"`: The full path to your video file. Make sure to enclose the path in quotes if it contains spaces.
+    -   `[path\\to\\output_video.mp4]`: (Optional) The path where the cropped video will be saved. If not provided, it will be saved in the same directory as the input video with the name `cropped_...mp4`.
+    -   `[smooth_sigma]`: (Optional) A number to control the smoothness of the camera motion (default is 5). A higher value results in smoother movement.
 
     -   An interactive window will open for you to select the object to track.
 

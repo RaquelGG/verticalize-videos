@@ -7,15 +7,22 @@ if not defined VIDEO_FILE (
 
 set "SCRIPT_DIR=%~dp0"
 set "PYTHON_SCRIPT=%SCRIPT_DIR%crop_video.py"
-set "FFMPEG_SCRIPT=%SCRIPT_DIR%videos/output.txt"
+
+set "INPUT_DIR=%~dp1"
+set "FFMPEG_SCRIPT=%INPUT_DIR%output.txt"
 
 set "OUTPUT_VIDEO=%2"
 if not defined OUTPUT_VIDEO (
-    set "OUTPUT_VIDEO=%SCRIPT_DIR%videos/cropped_%~n1.mp4"
+    set "OUTPUT_VIDEO=%INPUT_DIR%cropped_%~n1.mp4"
+)
+
+set "SIGMA_ARG="
+if defined %3 (
+    set "SIGMA_ARG=--smooth-sigma %3"
 )
 
 echo --- Step 1: Running Python script to generate ffmpeg filter script ---
-python "%PYTHON_SCRIPT%" --file "%VIDEO_FILE%" --output "%FFMPEG_SCRIPT%"
+python "%PYTHON_SCRIPT%" --file "%VIDEO_FILE%" --output "%FFMPEG_SCRIPT%" %SIGMA_ARG%
 
 if %errorlevel% neq 0 (
     echo.
