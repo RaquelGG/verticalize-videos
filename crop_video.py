@@ -93,15 +93,6 @@ class RectangleTracker:
 
         return rectangles
 
-def ffmpeg_line(center_x, frame_width, width, height, start, end):
-    x = center_x - width / 2
-    if x < 0:
-        x = 0
-    if x + width > frame_width:
-        x = frame_width - width
-    return f"crop={width}:{height}:{int(x)}:0:enable='between(n,{start},{end})'"
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-f", "--file", required=True, help="path to input video file")
@@ -112,14 +103,14 @@ def main():
     args = vars(ap.parse_args())
 
     vs = cv2.VideoCapture(args["file"])
+    fps = vs.get(cv2.CAP_PROP_FPS)
     frame_0 = vs.read()[1]
     frame_height, frame_width = frame_0.shape[:2]
 
     Rectangle.final_width = frame_height / 16 * 9
     Rectangle.final_height = frame_height
 
-    tracker = RectangleTracker(vs=vs, frame_width=frame_width, file=args["file"], ratio=args["ratio"],
-                               tracker=args["tracker"])
+    tracker = RectangleTracker(vs=vs, frame_width=frame_width, file=args["file"], ratio=args["ratio"], tracker=args["tracker"])
     rectangles = tracker.track()
 
     vs.release()
@@ -130,16 +121,32 @@ def main():
         return
 
     centers = [rect.get_center_x() for num, rect in sorted(rectangles.items())]
-
     smoothed_centers = gaussian_filter1d(np.array(centers, dtype=float), sigma=args["smooth_sigma"])
 
     height = frame_height
     width = int(height * 9 / 16)
 
+    filter_complex = ""
+    concat_inputs = ""
+    for i, center_x in enumerate(smoothed_centers):
+        x = int(center_x - width / 2)
+        if x < 0:
+            x = 0
+        if x + width > frame_width:
+            x = frame_width - width
+
+        start_time = i / fps
+        end_time = (i + 1) / fps
+
+        filter_complex += f"[0:v]trim={start_time}:{end_time},setpts=PTS-STARTPTS,crop={width}:{height}:{x}:0[v{i}];"
+        concat_inputs += f"[v{i}]"
+
+    concat_filter = f"{concat_inputs}concat=n={len(smoothed_centers)}:v=1:a=0[out]"
+    filter_complex += concat_filter
+
     with open(args["output"], "w") as file:
-        file.write("smartblur,")
-        for i, center_x in enumerate(smoothed_centers):
-            file.write(ffmpeg_line(center_x, frame_width, width, height, i, i) + ",\n")
+        file.write(f'-filter_complex "{filter_complex}" -map "[out]"')
+
     print(f"FFmpeg script written to {args['output']}")
 
 if __name__ == "__main__":
