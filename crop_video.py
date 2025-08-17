@@ -35,14 +35,6 @@ class Rectangle:
     def get_center_x(self):
         return int((self.x1 + self.x2) / 2)
 
-    def get_point1_final(self):
-        x1 = self.get_center_x() - Rectangle.final_width / self.ratio / 2
-        return int(x1), int(0)
-
-    def get_point2_final(self):
-        x1 = self.get_center_x() + Rectangle.final_width / self.ratio / 2
-        return int(x1), int(Rectangle.final_height / self.ratio)
-
     def get_point1_unscaled(self):
         return int(self.x1), int(self.y1)
 
@@ -101,36 +93,14 @@ class RectangleTracker:
 
         return rectangles
 
-def ffmpeg_line(center_x, center_y, start, end, frame_width, frame_height, width, height):
-    center_x = int(center_x)
-    center_y = int(center_y)
-    frame_width = int(frame_width)
-    frame_height = int(frame_height)
-    x2 = int(center_x - width / 2)
-    y2 = int(center_y - height / 2)
-    if y2 < 0:
-        y2 = 0
-    if y2 + height > frame_height:
-        y2 = frame_height - height
-    if x2 <= 0:
-        x2 = int(width / 2)
-    if x2 < width:
-        output = ""
-        i = 0
-        last = 0
-        while (i + 1) * x2 <= width + x2:
-            output += "swaprect=%s:%s:%s:0:%s:%s:enable='between(n,%s,%s)',\n" % (
-                x2, height, i * x2, (i + 1) * x2, y2, start, end)
-            last = i * x2
-            i += 1
-        rest = width - last
-        output += "swaprect=%s:%s:%s:0:%s:%s:enable='between(n,%s,%s)',\n" % (
-            rest, height, i * x2, i * x2 + rest, y2, start, end)
+def ffmpeg_line(center_x, frame_width, width, height, start, end):
+    x = center_x - width / 2
+    if x < 0:
+        x = 0
+    if x + width > frame_width:
+        x = frame_width - width
+    return f"crop={width}:{height}:{int(x)}:0:enable='between(n,{start},{end})'"
 
-        return output
-    elif x2 + width > frame_width:
-        x2 = frame_width - width
-    return "swaprect=%s:%s:0:0:%s:%s:enable='between(n,%s,%s)',\n" % (width, height, x2, y2, start, end)
 
 def main():
     ap = argparse.ArgumentParser()
@@ -148,7 +118,8 @@ def main():
     Rectangle.final_width = frame_height / 16 * 9
     Rectangle.final_height = frame_height
 
-    tracker = RectangleTracker(vs=vs, frame_width=frame_width, file=args["file"], ratio=args["ratio"], tracker=args["tracker"])
+    tracker = RectangleTracker(vs=vs, frame_width=frame_width, file=args["file"], ratio=args["ratio"],
+                               tracker=args["tracker"])
     rectangles = tracker.track()
 
     vs.release()
@@ -158,23 +129,17 @@ def main():
         print("No objects tracked.")
         return
 
-    # Convert rectangles to a simple list of centers
     centers = [rect.get_center_x() for num, rect in sorted(rectangles.items())]
 
-    # Smooth the centers
     smoothed_centers = gaussian_filter1d(np.array(centers, dtype=float), sigma=args["smooth_sigma"])
 
-    # Write the ffmpeg script
-    frame_height = frame_height
     height = frame_height
-    width = int(height * 9 / 16) + 1
-    frame_width = frame_width
+    width = int(height * 9 / 16)
 
     with open(args["output"], "w") as file:
+        file.write("smartblur,")
         for i, center_x in enumerate(smoothed_centers):
-            file.write(ffmpeg_line(center_x, 0, i, i, frame_width, frame_height, width, height))
-        file.write("crop=%s:%s:0:0,\n" % (width, height))
-
+            file.write(ffmpeg_line(center_x, frame_width, width, height, i, i) + ",\n")
     print(f"FFmpeg script written to {args['output']}")
 
 if __name__ == "__main__":
