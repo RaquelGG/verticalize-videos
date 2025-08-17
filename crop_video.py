@@ -33,7 +33,7 @@ class Rectangle:
         return self.y2 * self.ratio
 
     def get_center_x(self):
-        return int((self.x1 + self.x2) / 2)
+        return int(((self.x1 + self.x2) / 2) * self.ratio)
 
     def get_point1_unscaled(self):
         return int(self.x1), int(self.y1)
