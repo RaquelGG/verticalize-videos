@@ -96,7 +96,7 @@ class RectangleTracker:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("-f", "--file", required=True, help="path to input video file")
-    ap.add_argument("-o", "--output", type=str, default="output.txt", help="path to output ffmpeg script")
+    ap.add_argument("-o", "--output", type=str, default="videos/output.txt", help="path to output ffmpeg script")
     ap.add_argument("-t", "--tracker", type=str, default="csrt", help="OpenCV object tracker type")
     ap.add_argument("-r", "--ratio", type=int, default=5, help="ratio to resize frames for processing")
     ap.add_argument("-s", "--smooth-sigma", type=int, default=5, help="sigma for gaussian smoothing")
@@ -140,8 +140,8 @@ def main():
 
         start_time = i / fps
 
-        video_filters.append(f"[0:v]trim=start_time={start_time}:duration={1/fps},setpts=PTS-STARTPTS,crop={width}:{height}:{x}:0,format=yuv420p[v{i}]")
-        audio_filters.append(f"[0:a]atrim=start_time={start_time}:duration={1/fps},asetpts=PTS-STARTPTS[a{i}]")
+        video_filters.append(f"[0:v]trim=start={start_time}:duration={1/fps},setpts=PTS-STARTPTS,crop={width}:{height}:{x}:0,format=yuv420p[v{i}]")
+        audio_filters.append(f"[0:a]atrim=start={start_time}:duration={1/fps},asetpts=PTS-STARTPTS[a{i}]")
         concat_video_inputs += f"[v{i}]"
         concat_audio_inputs += f"[a{i}]"
 
@@ -152,7 +152,7 @@ def main():
         file.write(filter_complex)
 
     print(f"FFmpeg script written to {args['output']}")
-    print(f'Now run: ffmpeg -i {args["file"]} -filter_complex_script {args["output"]} -map "[outv]" -map "[outa]" cropped_video.mp4')
+    print(f'Now run: ffmpeg -i {args["file"]} -filter_complex_script {args["output"]} -map "[outv]" -map "[outa]" videos/cropped_video.mp4')
 
 if __name__ == "__main__":
     main()
