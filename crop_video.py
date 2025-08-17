@@ -1,0 +1,181 @@
+import cv2
+import argparse
+import imutils
+import numpy as np
+from scipy.ndimage import gaussian_filter1d
+
+class Rectangle:
+    final_width = 0
+    final_height = 0
+
+    def __init__(self, x1, x2, y1, y2, frame_number, ratio):
+        self.x1 = float(x1)
+        self.x2 = float(x2)
+        self.y1 = float(y1)
+        self.y2 = float(y2)
+        self.frame_number = int(frame_number)
+        self.ratio = float(ratio)
+
+    @staticmethod
+    def from_roi(roi, frame_number, ratio):
+        return Rectangle(roi[0], roi[0] + roi[2], roi[1], roi[1] + roi[3], frame_number, ratio)
+
+    def get_x1(self):
+        return self.x1 * self.ratio
+
+    def get_x2(self):
+        return self.x2 * self.ratio
+
+    def get_y1(self):
+        return self.y1 * self.ratio
+
+    def get_y2(self):
+        return self.y2 * self.ratio
+
+    def get_center_x(self):
+        return int((self.x1 + self.x2) / 2)
+
+    def get_point1_final(self):
+        x1 = self.get_center_x() - Rectangle.final_width / self.ratio / 2
+        return int(x1), int(0)
+
+    def get_point2_final(self):
+        x1 = self.get_center_x() + Rectangle.final_width / self.ratio / 2
+        return int(x1), int(Rectangle.final_height / self.ratio)
+
+    def get_point1_unscaled(self):
+        return int(self.x1), int(self.y1)
+
+    def get_point2_unscaled(self):
+        return int(self.x2), int(self.y2)
+
+    def get_frame_number(self):
+        return self.frame_number
+
+OPENCV_OBJECT_TRACKERS = {
+    "csrt": cv2.TrackerCSRT.create,
+    "kcf": cv2.TrackerKCF.create,
+    "mil": cv2.TrackerMIL.create,
+}
+
+class RectangleTracker:
+
+    def __init__(self, *, vs: cv2.VideoCapture, frame_width: int, file: str, ratio: float, tracker: str):
+        self.file = file
+        self.ratio = ratio
+        self.vs = vs
+        self.frame_width = frame_width
+        self.total_frames = int(vs.get(cv2.CAP_PROP_FRAME_COUNT))
+        self.tracker = OPENCV_OBJECT_TRACKERS[tracker]()
+
+    def track(self) -> {int: Rectangle}:
+        rectangles: {int: Rectangle} = {}
+        roi_found = False
+        cur_frame_number = 0
+
+        self.vs.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        while cur_frame_number < self.total_frames:
+            _, frame = self.vs.read()
+            if frame is None:
+                break
+
+            resized_frame = imutils.resize(frame, width=int(self.frame_width / self.ratio))
+
+            if not roi_found:
+                roi = cv2.selectROI(self.file, resized_frame, fromCenter=False)
+                rectangles[cur_frame_number] = Rectangle.from_roi(roi, cur_frame_number, self.ratio)
+                self.tracker.init(resized_frame, roi)
+                roi_found = True
+            else:
+                cur_frame_number += 1
+                (roi_found, box) = self.tracker.update(resized_frame)
+                if roi_found:
+                    (x, y, w, h) = [int(v) for v in box]
+                    cv2.rectangle(resized_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    rectangles[cur_frame_number] = Rectangle(x, x + w, y, y + h, cur_frame_number, self.ratio)
+
+            cv2.putText(resized_frame, f"Frame: {cur_frame_number}/{self.total_frames}", (10, 20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            cv2.imshow(self.file, resized_frame)
+            cv2.waitKey(1) & 0xFF
+
+        return rectangles
+
+def ffmpeg_line(center_x, center_y, start, end, frame_width, frame_height, width, height):
+    center_x = int(center_x)
+    center_y = int(center_y)
+    frame_width = int(frame_width)
+    frame_height = int(frame_height)
+    x2 = int(center_x - width / 2)
+    y2 = int(center_y - height / 2)
+    if y2 < 0:
+        y2 = 0
+    if y2 + height > frame_height:
+        y2 = frame_height - height
+    if x2 <= 0:
+        x2 = int(width / 2)
+    if x2 < width:
+        output = ""
+        i = 0
+        last = 0
+        while (i + 1) * x2 <= width + x2:
+            output += "swaprect=%s:%s:%s:0:%s:%s:enable='between(n,%s,%s)',\n" % (
+                x2, height, i * x2, (i + 1) * x2, y2, start, end)
+            last = i * x2
+            i += 1
+        rest = width - last
+        output += "swaprect=%s:%s:%s:0:%s:%s:enable='between(n,%s,%s)',\n" % (
+            rest, height, i * x2, i * x2 + rest, y2, start, end)
+
+        return output
+    elif x2 + width > frame_width:
+        x2 = frame_width - width
+    return "swaprect=%s:%s:0:0:%s:%s:enable='between(n,%s,%s)',\n" % (width, height, x2, y2, start, end)
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-f", "--file", required=True, help="path to input video file")
+    ap.add_argument("-o", "--output", type=str, default="output.txt", help="path to output ffmpeg script")
+    ap.add_argument("-t", "--tracker", type=str, default="csrt", help="OpenCV object tracker type")
+    ap.add_argument("-r", "--ratio", type=int, default=5, help="ratio to resize frames for processing")
+    ap.add_argument("-s", "--smooth-sigma", type=int, default=5, help="sigma for gaussian smoothing")
+    args = vars(ap.parse_args())
+
+    vs = cv2.VideoCapture(args["file"])
+    frame_0 = vs.read()[1]
+    frame_height, frame_width = frame_0.shape[:2]
+
+    Rectangle.final_width = frame_height / 16 * 9
+    Rectangle.final_height = frame_height
+
+    tracker = RectangleTracker(vs=vs, frame_width=frame_width, file=args["file"], ratio=args["ratio"], tracker=args["tracker"])
+    rectangles = tracker.track()
+
+    vs.release()
+    cv2.destroyAllWindows()
+
+    if not rectangles:
+        print("No objects tracked.")
+        return
+
+    # Convert rectangles to a simple list of centers
+    centers = [rect.get_center_x() for num, rect in sorted(rectangles.items())]
+
+    # Smooth the centers
+    smoothed_centers = gaussian_filter1d(np.array(centers, dtype=float), sigma=args["smooth_sigma"])
+
+    # Write the ffmpeg script
+    frame_height = frame_height
+    height = frame_height
+    width = int(height * 9 / 16) + 1
+    frame_width = frame_width
+
+    with open(args["output"], "w") as file:
+        for i, center_x in enumerate(smoothed_centers):
+            file.write(ffmpeg_line(center_x, 0, i, i, frame_width, frame_height, width, height))
+        file.write("crop=%s:%s:0:0,\n" % (width, height))
+
+    print(f"FFmpeg script written to {args['output']}")
+
+if __name__ == "__main__":
+    main()
