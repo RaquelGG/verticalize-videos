@@ -126,8 +126,11 @@ def main():
     height = frame_height
     width = int(height * 9 / 16)
 
-    filter_complex = ""
-    concat_inputs = ""
+    video_filters = []
+    audio_filters = []
+    concat_video_inputs = ""
+    concat_audio_inputs = ""
+
     for i, center_x in enumerate(smoothed_centers):
         x = int(center_x - width / 2)
         if x < 0:
@@ -136,19 +139,20 @@ def main():
             x = frame_width - width
 
         start_time = i / fps
-        end_time = (i + 1) / fps
 
-        filter_complex += f"[0:v]trim={start_time}:{end_time},setpts=PTS-STARTPTS,crop={width}:{height}:{x}:0[v{i}];"
-        concat_inputs += f"[v{i}]"
+        video_filters.append(f"[0:v]trim=start_time={start_time}:duration={1/fps},setpts=PTS-STARTPTS,crop={width}:{height}:{x}:0,format=yuv420p[v{i}]")
+        audio_filters.append(f"[0:a]atrim=start_time={start_time}:duration={1/fps},asetpts=PTS-STARTPTS[a{i}]")
+        concat_video_inputs += f"[v{i}]"
+        concat_audio_inputs += f"[a{i}]"
 
-    concat_filter = f"{concat_inputs}concat=n={len(smoothed_centers)}:v=1:a=0[out]"
-    filter_complex += concat_filter
+    filter_complex = ";".join(video_filters) + ";" + ";".join(audio_filters) + ";"
+    filter_complex += f"{concat_video_inputs}{concat_audio_inputs}concat=n={len(smoothed_centers)}:v=1:a=1[outv][outa]"
 
     with open(args["output"], "w") as file:
         file.write(filter_complex)
 
     print(f"FFmpeg script written to {args['output']}")
-    print(f'Now run: ffmpeg -i {args["file"]} -filter_complex_script {args["output"]} -map "[out]" cropped_video.mp4')
+    print(f'Now run: ffmpeg -i {args["file"]} -filter_complex_script {args["output"]} -map "[outv]" -map "[outa]" cropped_video.mp4')
 
 if __name__ == "__main__":
     main()

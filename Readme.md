@@ -37,7 +37,7 @@ The script will then automatically process the rest of the video to track the se
 Now, use the `output.txt` file with `ffmpeg` to perform the actual cropping. Run the following command in your terminal:
 
 ```bash
-ffmpeg -i path/to/your_video.mp4 -filter_complex_script output.txt -map "[out]" cropped_video.mp4
+ffmpeg -i path/to/your_video.mp4 -filter_complex_script output.txt -map "[outv]" -map "[outa]" cropped_video.mp4
 ```
 
 -   Replace `path/to/your_video.mp4` with the path to your original video.
