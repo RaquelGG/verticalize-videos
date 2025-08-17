@@ -46,7 +46,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo --- Step 2: Running ffmpeg to create the cropped video ---
-ffmpeg -i "%VIDEO_FILE%" -filter_complex_script "%FFMPEG_SCRIPT%" -map "[outv]" -map "[outa]" "%OUTPUT_VIDEO%"
+ffmpeg -y -i "%VIDEO_FILE%" -filter_complex_script "%FFMPEG_SCRIPT%" -map "[outv]" -map "[outa]" "%OUTPUT_VIDEO%"
 
 if %errorlevel% neq 0 (
     echo.
