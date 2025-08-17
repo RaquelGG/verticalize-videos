@@ -16,12 +16,13 @@ A `run.bat` script is provided to automate the entire process.
 2.  **Run the script:**
     Open a command prompt, navigate to the project directory, and run:
     ```bash
-    run.bat "path\\to\\your_video.mp4"
+    run.bat "path\\to\\your_video.mp4" [path\\to\\output_video.mp4]
     ```
     -   Replace `"path\\to\\your_video.mp4"` with the full path to your video file. Make sure to enclose the path in quotes if it contains spaces.
+    -   The `[path\\to\\output_video.mp4]` argument is optional. If you provide it, the cropped video will be saved to that path.
+    -   If you don't provide an output path, the video will be saved in the `videos/` directory with the name `cropped_your_video.mp4`.
 
     -   An interactive window will open for you to select the object to track.
-    -   The final cropped video will be saved in the `videos/` directory with the name `cropped_your_video.mp4`.
 
 ---
 
