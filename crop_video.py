@@ -158,8 +158,8 @@ def main():
         print("No objects tracked.")
         return
 
-    # Convert rectangles to a simple list of centers
-    centers = [rect.get_center_x() for num, rect in sorted(rectangles.items())]
+    # Convert rectangles to a simple list of centers, scaling to original frame size
+    centers = [(rect.get_center_x() * args["ratio"]) for num, rect in sorted(rectangles.items())]
 
     # Smooth the centers
     smoothed_centers = gaussian_filter1d(np.array(centers, dtype=float), sigma=args["smooth_sigma"])
