@@ -5,16 +5,17 @@ if not defined VIDEO_FILE (
     exit /b 1
 )
 
-set "PYTHON_SCRIPT=crop_video.py"
-set "FFMPEG_SCRIPT=videos/output.txt"
+set "SCRIPT_DIR=%~dp0"
+set "PYTHON_SCRIPT=%SCRIPT_DIR%crop_video.py"
+set "FFMPEG_SCRIPT=%SCRIPT_DIR%videos/output.txt"
 
 set "OUTPUT_VIDEO=%2"
 if not defined OUTPUT_VIDEO (
-    set "OUTPUT_VIDEO=videos/cropped_%~n1.mp4"
+    set "OUTPUT_VIDEO=%SCRIPT_DIR%videos/cropped_%~n1.mp4"
 )
 
 echo --- Step 1: Running Python script to generate ffmpeg filter script ---
-python %PYTHON_SCRIPT% --file "%VIDEO_FILE%" --output "%FFMPEG_SCRIPT%"
+python "%PYTHON_SCRIPT%" --file "%VIDEO_FILE%" --output "%FFMPEG_SCRIPT%"
 
 if %errorlevel% neq 0 (
     echo.

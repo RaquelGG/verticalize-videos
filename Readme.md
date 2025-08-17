@@ -24,6 +24,8 @@ A `run.bat` script is provided to automate the entire process.
 
     -   An interactive window will open for you to select the object to track.
 
+    **Note:** You can add the folder containing `run.bat` to your system's PATH environment variable. This will allow you to run the script from any directory in your command prompt without having to navigate to the project folder first.
+
 ---
 
 ### For All Users (Manual Steps)
