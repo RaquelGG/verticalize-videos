@@ -145,9 +145,10 @@ def main():
     filter_complex += concat_filter
 
     with open(args["output"], "w") as file:
-        file.write(f'-filter_complex "{filter_complex}" -map "[out]"')
+        file.write(filter_complex)
 
     print(f"FFmpeg script written to {args['output']}")
+    print(f'Now run: ffmpeg -i {args["file"]} -filter_complex_script {args["output"]} -map "[out]" cropped_video.mp4')
 
 if __name__ == "__main__":
     main()
