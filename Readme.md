@@ -1,6 +1,61 @@
-Check the tutorial at [filippi.dev](https://filippi.dev/tutorials/vertical-video-from-youtube/) for more information.
+# Video Object Tracker and Cropper
 
-Here's how to run the `maker.ps1` script:
+This project provides a Python script to track a selected object in a video and generate an FFmpeg script to create a new, cropped vertical video that keeps the object in the center of the frame.
+
+## How to Use
+
+The process involves two main stages:
+1.  Running the Python script to track an object and generate a filter script.
+2.  Using the `ffmpeg` command-line tool with the generated script to create the final cropped video.
+
+---
+
+### Step 1: Install Dependencies
+
+First, you need to install the required Python libraries. Open your terminal or command prompt in the project directory and run:
+
+```bash
+pip install -r requirements.txt
 ```
-.\maker.ps1 -YouTubeLink "https://www.youtube.com/watch?v=XPQlMmMDm-A" -Start "00:00:00" -Stop "00:00:15" -Title "Singer Parrot"
+
+### Step 2: Run the Tracking Script
+
+Next, run the `crop_video.py` script. You must provide the path to your input video file.
+
+```bash
+python crop_video.py --file path/to/your_video.mp4
+```
+
+-   **An interactive window will open** showing the first frame of your video.
+-   **Use your mouse to draw a box** around the object you want to track.
+-   Once you are satisfied with the box, **press the `ENTER` or `SPACE` key**.
+
+The script will then automatically process the rest of the video to track the selected object. When it's finished, the window will close, and a file named `output.txt` (or whatever you specify with the `--output` flag) will be created in your directory.
+
+### Step 3: Create the Cropped Video with FFmpeg
+
+Now, use the `output.txt` file with `ffmpeg` to perform the actual cropping. Run the following command in your terminal:
+
+```bash
+ffmpeg -i path/to/your_video.mp4 -filter_script:v output.txt cropped_video.mp4
+```
+
+-   Replace `path/to/your_video.mp4` with the path to your original video.
+-   Replace `cropped_video.mp4` with the desired name for your new, cropped video file.
+
+This will create a new vertical video file where the frame is always centered on the object you tracked.
+
+---
+
+### Optional Arguments
+
+You can customize the script's behavior with these optional arguments:
+
+-   `--output <filename>`: Specifies a different name for the generated ffmpeg script (default is `output.txt`).
+-   `--tracker <tracker_name>`: Choose a different OpenCV tracking algorithm. Options are `csrt` (default), `kcf`, or `mil`.
+-   `--smooth-sigma <value>`: Adjusts the smoothness of the camera motion (default is `5`). A higher value results in smoother, less jerky movement.
+
+Example with optional arguments:
+```bash
+python crop_video.py --file my_video.mp4 --output my_script.txt --smooth-sigma 10
 ```
