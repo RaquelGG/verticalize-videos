@@ -128,8 +128,7 @@ def main():
 
     video_filters = []
     audio_filters = []
-    concat_video_inputs = ""
-    concat_audio_inputs = ""
+    concat_inputs = ""
 
     for i, center_x in enumerate(smoothed_centers):
         x = int(center_x - width / 2)
@@ -142,11 +141,10 @@ def main():
 
         video_filters.append(f"[0:v]trim=start={start_time}:duration={1/fps},setpts=PTS-STARTPTS,crop={width}:{height}:{x}:0,format=yuv420p[v{i}]")
         audio_filters.append(f"[0:a]atrim=start={start_time}:duration={1/fps},asetpts=PTS-STARTPTS[a{i}]")
-        concat_video_inputs += f"[v{i}]"
-        concat_audio_inputs += f"[a{i}]"
+        concat_inputs += f"[v{i}][a{i}]"
 
     filter_complex = ";".join(video_filters) + ";" + ";".join(audio_filters) + ";"
-    filter_complex += f"{concat_video_inputs}{concat_audio_inputs}concat=n={len(smoothed_centers)}:v=1:a=1[outv][outa]"
+    filter_complex += f"{concat_inputs}concat=n={len(smoothed_centers)}:v=1:a=1[outv][outa]"
 
     with open(args["output"], "w") as file:
         file.write(filter_complex)
