@@ -22,23 +22,23 @@ pip install -r requirements.txt
 
 **To use Tracking Mode:**
 ```bash
-run.bat "path\\to\\your_video.mp4" [/s sigma_value] [/o "path\\to\\output.mp4"]
+run.bat "path\\to\\your_video.mp4" [-s sigma_value] [-o "path\\to\\output.mp4"]
 ```
 -   This is the default mode.
 -   An interactive window will open for you to select the object to track.
 
 **To use Layout Mode:**
 ```bash
-run.bat "path\\to\\your_video.mp4" /layout [/b blur_amount] [/z zoom_factor] [/o "path\\to\\output.mp4"]
+run.bat "path\\to\\your_video.mp4" -layout [-b blur_amount] [-z zoom_factor] [-o "path\\to\\output.mp4"]
 ```
--   The `/layout` flag is required to enable this mode.
--   `/b blur_amount`: (Optional) Sets the background blur amount (e.g., `/b 30`). Defaults to 20.
--   `/z zoom_factor`: (Optional) Sets the zoom level for the foreground video (e.g., `/z 1.2` for a 20% zoom). Defaults to 1.0 (no zoom).
+-   The `-layout` flag is required to enable this mode.
+-   `-b blur_amount`: (Optional) Sets the background blur amount (e.g., `-b 30`). Defaults to 20.
+-   `-z zoom_factor`: (Optional) Sets the zoom level for the foreground video (e.g., `-z 1.2` for a 20% zoom). Defaults to 1.0 (no zoom).
 
 **Common Arguments for `run.bat`:**
 -   `"path\\to\\your_video.mp4"`: The full path to your video file (required).
--   `/o "path\\to\\output.mp4"`: (Optional) The path where the final video will be saved.
--   `/s sigma_value`: (Optional, Tracking Mode only) Controls camera smoothness.
+-   `-o "path\\to\\output.mp4"`: (Optional) The path where the final video will be saved.
+-   `-s sigma_value`: (Optional, Tracking Mode only) Controls camera smoothness.
 
 **Note:** You can add the folder containing `run.bat` to your system's PATH environment variable. This will allow you to run the script from any directory in your command prompt.
 

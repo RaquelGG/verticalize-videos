@@ -104,7 +104,7 @@ def create_layout_video(args):
     # Get video dimensions
     vs = cv2.VideoCapture(input_file)
     frame_height = int(vs.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    frame_width = int(vs.get(cv2.CAP_PROP_VIDEO_WIDTH))
+    frame_width = int(vs.get(cv2.CAP_PROP_FRAME_WIDTH))
     vs.release()
 
     # Assuming a 9:16 vertical output
@@ -148,7 +148,7 @@ def create_tracking_video(args):
     vs = cv2.VideoCapture(args["file"])
     fps = vs.get(cv2.CAP_PROP_FPS)
     frame_height = int(vs.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    frame_width = int(vs.get(cv2.CAP_PROP_VIDEO_WIDTH))
+    frame_width = int(vs.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     tracker = RectangleTracker(vs=vs, frame_width=frame_width, file=args["file"], ratio=args["ratio"], tracker=args["tracker"])
     rectangles = tracker.track()

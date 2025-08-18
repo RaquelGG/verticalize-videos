@@ -19,30 +19,30 @@ set "OUTPUT_VIDEO="
 
 :arg_loop
 IF "%2"=="" GOTO :end_args
-IF /I "%2"=="/layout" (
+IF /I "%2"=="-layout" (
     set "LAYOUT_MODE=--layout"
     SHIFT
     GOTO :arg_loop
 )
-IF /I "%2"=="/s" (
+IF /I "%2"=="-s" (
     set "SIGMA_VALUE=%3"
     SHIFT
     SHIFT
     GOTO :arg_loop
 )
-IF /I "%2"=="/b" (
+IF /I "%2"=="-b" (
     set "BLUR_VALUE=%3"
     SHIFT
     SHIFT
     GOTO :arg_loop
 )
-IF /I "%2"=="/z" (
+IF /I "%2"=="-z" (
     set "ZOOM_VALUE=%3"
     SHIFT
     SHIFT
     GOTO :arg_loop
 )
-IF /I "%2"=="/o" (
+IF /I "%2"=="-o" (
     set "OUTPUT_VIDEO=%3"
     SHIFT
     SHIFT
