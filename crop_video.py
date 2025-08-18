@@ -3,6 +3,8 @@ import argparse
 import imutils
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
+import subprocess
+import os
 
 class Rectangle:
     final_width = 0
@@ -33,15 +35,7 @@ class Rectangle:
         return self.y2 * self.ratio
 
     def get_center_x(self):
-        return int((self.x1 + self.x2) / 2)
-
-    def get_point1_final(self):
-        x1 = self.get_center_x() - Rectangle.final_width / self.ratio / 2
-        return int(x1), int(0)
-
-    def get_point2_final(self):
-        x1 = self.get_center_x() + Rectangle.final_width / self.ratio / 2
-        return int(x1), int(Rectangle.final_height / self.ratio)
+        return int(((self.x1 + self.x2) / 2) * self.ratio)
 
     def get_point1_unscaled(self):
         return int(self.x1), int(self.y1)
@@ -101,52 +95,60 @@ class RectangleTracker:
 
         return rectangles
 
-def ffmpeg_line(center_x, center_y, start, end, frame_width, frame_height, width, height):
-    center_x = int(center_x)
-    center_y = int(center_y)
-    frame_width = int(frame_width)
-    frame_height = int(frame_height)
-    x2 = int(center_x - width / 2)
-    y2 = int(center_y - height / 2)
-    if y2 < 0:
-        y2 = 0
-    if y2 + height > frame_height:
-        y2 = frame_height - height
-    if x2 <= 0:
-        x2 = int(width / 2)
-    if x2 < width:
-        output = ""
-        i = 0
-        last = 0
-        while (i + 1) * x2 <= width + x2:
-            output += "swaprect=%s:%s:%s:0:%s:%s:enable='between(n,%s,%s)',\n" % (
-                x2, height, i * x2, (i + 1) * x2, y2, start, end)
-            last = i * x2
-            i += 1
-        rest = width - last
-        output += "swaprect=%s:%s:%s:0:%s:%s:enable='between(n,%s,%s)',\n" % (
-            rest, height, i * x2, i * x2 + rest, y2, start, end)
+def create_layout_video(args):
+    input_file = args["file"]
+    output_file = args["output"]
+    blur_amount = args["blur"]
+    zoom_factor = args["zoom"]
 
-        return output
-    elif x2 + width > frame_width:
-        x2 = frame_width - width
-    return "swaprect=%s:%s:0:0:%s:%s:enable='between(n,%s,%s)',\n" % (width, height, x2, y2, start, end)
+    # Get video dimensions
+    vs = cv2.VideoCapture(input_file)
+    frame_height = int(vs.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    frame_width = int(vs.get(cv2.CAP_PROP_FRAME_WIDTH))
+    vs.release()
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("-f", "--file", required=True, help="path to input video file")
-    ap.add_argument("-o", "--output", type=str, default="output.txt", help="path to output ffmpeg script")
-    ap.add_argument("-t", "--tracker", type=str, default="csrt", help="OpenCV object tracker type")
-    ap.add_argument("-r", "--ratio", type=int, default=5, help="ratio to resize frames for processing")
-    ap.add_argument("-s", "--smooth-sigma", type=int, default=5, help="sigma for gaussian smoothing")
-    args = vars(ap.parse_args())
+    # Assuming a 9:16 vertical output
+    output_width = 1080
+    output_height = 1920
 
+    if frame_width > frame_height: # Horizontal video
+        bg_scale = f"scale=-1:{output_height}"
+        fg_scale = f"scale={int(output_width * zoom_factor)}:-1"
+    else: # Vertical or square video
+        bg_scale = f"scale={output_width}:-1"
+        fg_scale = f"scale=-1:{int(output_height * zoom_factor)}"
+
+
+    filter_complex = (
+        f"[0:v]split[fg_pre][bg_pre];"
+        f"[bg_pre]{bg_scale},crop={output_width}:{output_height},boxblur={blur_amount}:1[bg];"
+        f"[fg_pre]{fg_scale}[fg];"
+        f"[bg][fg]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2[outv]"
+    )
+
+    ffmpeg_command = [
+        "ffmpeg",
+        "-y",
+        "-i", input_file,
+        "-filter_complex", filter_complex,
+        "-map", "[outv]",
+        "-map", "0:a?", # Map audio if it exists
+        "-c:a", "copy",
+        output_file
+    ]
+
+    print("Running ffmpeg command:")
+    print(" ".join(ffmpeg_command))
+
+    subprocess.run(ffmpeg_command, check=True)
+    print(f"Layout video created at: {output_file}")
+
+
+def create_tracking_video(args):
     vs = cv2.VideoCapture(args["file"])
-    frame_0 = vs.read()[1]
-    frame_height, frame_width = frame_0.shape[:2]
-
-    Rectangle.final_width = frame_height / 16 * 9
-    Rectangle.final_height = frame_height
+    fps = vs.get(cv2.CAP_PROP_FPS)
+    frame_height = int(vs.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    frame_width = int(vs.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     tracker = RectangleTracker(vs=vs, frame_width=frame_width, file=args["file"], ratio=args["ratio"], tracker=args["tracker"])
     rectangles = tracker.track()
@@ -158,24 +160,68 @@ def main():
         print("No objects tracked.")
         return
 
-    # Convert rectangles to a simple list of centers
     centers = [rect.get_center_x() for num, rect in sorted(rectangles.items())]
-
-    # Smooth the centers
     smoothed_centers = gaussian_filter1d(np.array(centers, dtype=float), sigma=args["smooth_sigma"])
 
-    # Write the ffmpeg script
-    frame_height = frame_height
     height = frame_height
-    width = int(height * 9 / 16) + 1
-    frame_width = frame_width
+    width = int(height * 9 / 16)
 
-    with open(args["output"], "w") as file:
-        for i, center_x in enumerate(smoothed_centers):
-            file.write(ffmpeg_line(center_x, 0, i, i, frame_width, frame_height, width, height))
-        file.write("crop=%s:%s:0:0,\n" % (width, height))
+    video_filters = []
+    audio_filters = []
+    concat_inputs = ""
 
-    print(f"FFmpeg script written to {args['output']}")
+    for i, center_x in enumerate(smoothed_centers):
+        x = int(center_x - width / 2)
+        if x < 0:
+            x = 0
+        if x + width > frame_width:
+            x = frame_width - width
+
+        start_time = i / fps
+
+        video_filters.append(f"[0:v]trim=start={start_time}:duration={1/fps},setpts=PTS-STARTPTS,crop={width}:{height}:{x}:0,format=yuv420p[v{i}]")
+        audio_filters.append(f"[0:a]atrim=start={start_time}:duration={1/fps},asetpts=PTS-STARTPTS[a{i}]")
+        concat_inputs += f"[v{i}][a{i}]"
+
+    filter_complex = ";".join(video_filters) + ";" + ";".join(audio_filters) + ";"
+    filter_complex += f"{concat_inputs}concat=n={len(smoothed_centers)}:v=1:a=1[outv][outa]"
+
+    output_script_path = args["output"]
+    with open(output_script_path, "w") as file:
+        file.write(filter_complex)
+
+    print(f"FFmpeg script written to {output_script_path}")
+    print(f"Now run: ffmpeg -y -i {args['file']} -filter_complex_script {output_script_path} -map \"[outv]\" -map \"[outa]\" path/to/cropped_video.mp4")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("-f", "--file", required=True, help="path to input video file")
+
+    # --- Modes ---
+    ap.add_argument("--layout", action="store_true", help="Use layout mode instead of tracking.")
+
+    # --- Tracking Mode Arguments ---
+    ap.add_argument("-o", "--output", default="output.txt", help="Path for script (tracking mode) or final video (layout mode).")
+    ap.add_argument("-t", "--tracker", type=str, default="csrt", help="OpenCV object tracker type.")
+    ap.add_argument("-r", "--ratio", type=int, default=5, help="Ratio to resize frames for processing.")
+    ap.add_argument("-s", "--smooth-sigma", type=int, default=5, help="Sigma for gaussian smoothing.")
+
+    # --- Layout Mode Arguments ---
+    ap.add_argument("-b", "--blur", type=int, default=20, help="Blur amount for the background in layout mode.")
+    ap.add_argument("-z", "--zoom", type=float, default=1.0, help="Zoom factor for the foreground video in layout mode.")
+
+    args = vars(ap.parse_args())
+
+    if args["layout"]:
+        # In layout mode, the --output argument is the final video file
+        input_path = args["file"]
+        # Default output path for layout mode
+        if args["output"] == "output.txt":
+             args["output"] = f"{os.path.splitext(input_path)[0]}_layout.mp4"
+        create_layout_video(args)
+    else:
+        create_tracking_video(args)
 
 if __name__ == "__main__":
     main()
